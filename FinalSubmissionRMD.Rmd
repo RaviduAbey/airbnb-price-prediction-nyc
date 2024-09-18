@@ -1,0 +1,315 @@
+---
+title: "Assessment 2"
+author: "Ravidu Sadaruwan Abeywardana - s4616625"
+date: "2023-06-04"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+# Introduction
+
+Predicting the prices of Airbnb listings is an essential task for both hosts and guests in order to ensure fair pricing and facilitate informed decision-making. In this project, we aim to create a model that predicts Airbnb prices in New York City (NYC) based on various features provided in the dataset. The dataset used for this project consists of information about Airbnb listings in NYC. The aim of this project is to build a regression model that can accurately estimate the price of an Airbnb listing based on its attributes. Throughout the process, we will follow common machine learning steps, including data exploration, preprocessing, feature selection or engineering, model training, and evaluation. We will assess the performance of our model using appropriate evaluation metrics such as mean absolute error (MAE) or root mean squared error (RMSE).
+
+## Loading necessary libraries
+
+```{r}
+library(tidymodels)
+library(dplyr)
+library (tidyverse)
+library (modeldata)
+library(ggplot2)
+library(broom)
+library(GGally)
+```
+
+## Data Wrangling process
+
+```{r}
+# Read data from CSV
+data <- read.csv("train.csv")
+```
+
+### Handling Missing Data
+
+```{r}
+# Check for missing data
+colSums(is.na(data))
+```
+
+It appears that the columns **`name`**, **`host_name`**, **`last_review`**, and **`reviews_per_month`** have missing values.
+
+```{r}
+# Handle missing data
+# fill in missing values in 'last_review' with a placeholder date
+data$last_review[is.na(data$last_review)] <- as.Date("1900-01-01")
+
+# fill in missing values in 'reviews_per_month' with 0
+data$reviews_per_month[is.na(data$reviews_per_month)] <- 0
+
+colSums(is.na(data))
+```
+
+In the data preprocessing step, the important missing values in the **`last_review`** column were filled with a placeholder date (January 1, 1900), and the missing values in the **`reviews_per_month`** column were filled with 0.
+
+### Outlier Detection and Removal
+
+```{r}
+#Checking for outliers
+# Create boxplot for price
+ggplot(data, aes(y = price)) +
+  geom_boxplot()
+```
+
+```{r}
+# Removing outliers
+data <- read.csv("train.csv")
+mean_val <- mean(data$price)
+sd_val <- sd(data$price)
+
+# Define the threshold
+threshold <- 0.53
+
+# Identify outliers
+outliers <- data$price < (mean_val - threshold * sd_val) | data$price > (mean_val + threshold * sd_val)
+
+# Remove outliers from the dataset
+data <- data[!outliers, ]
+
+#Checking for outliers
+ggplot(data, aes(y = price)) +
+  geom_boxplot(fill = "lightblue", color = "darkblue", outlier.color = "red") +
+  labs(x = "", y = "Price") +
+  theme_bw()
+```
+
+By removing the outliers, the dataset is modified to have a more representative distribution of prices without extreme values that might affect the analysis or modeling process.
+
+### Skewness Assessment
+
+```{r}
+# Density plot with mean and median markers
+ggplot(data, aes(x = price)) +
+  geom_density(fill = "blue", color = "white") +
+  labs(x = "Price", y = "Density") +
+  theme_bw() +
+  geom_vline(aes(xintercept = mean(price)), color = "red", linetype = "dashed", size = 1) +
+  geom_vline(aes(xintercept = median(price)), color = "green", linetype = "dashed", size = 1) +
+  annotate("text", x = mean(data$price), y = 0, label = "Mean", vjust = -0.5, color = "red") +
+  annotate("text", x = median(data$price), y = 0, label = "Median", vjust = -0.5, color = "green")
+
+```
+
+The resulting density plot helps in assessing the skewness of the 'price' variable. The distribution is skewed to the right. This means that the tail of the distribution extends towards higher prices, indicating a higher frequency of higher-priced listings compared to lower-priced ones. Understanding the skewness of a variable is essential as it can impact the modeling process and the assumptions made by certain statistical techniques.
+
+### Visualizing Relationships between Variables
+
+```{r}
+# Check high correlation to data target 
+ggcorr(data, label = T, hjust = 1, layout.exp = 3)
+```
+
+#### **Overall view of the relationship between variables and the "price" variable**
+
+```{r}
+library(RColorBrewer)
+
+color_palette <- brewer.pal(n = length(unique(data$neighbourhood_group)), name = "Set1")
+ggpairs(data, columns = c("price", "neighbourhood_group", "room_type", "number_of_reviews", "minimum_nights"),
+        title = "Scatter Plot Matrix of Selected Variables",
+        binwidth = 0.5,
+        mapping = aes(color = neighbourhood_group)) +
+  theme_bw() +
+  scale_color_manual(values = color_palette) 
+
+```
+
+### Data Splitting
+
+```{r}
+set.seed(123)
+data_split <- initial_split(data)
+data_train <- training (data_split)
+data_test <- testing (data_split)
+```
+
+The process of splitting the dataset into training and testing subsets allows for model training and evaluation on separate portions of the data. The data_train subset is utilized for training the model, which involves learning patterns and relationships within the data. On the other hand, the data_test subset is used to evaluate the performance of the trained model on unseen data.
+
+# Data Exploration
+
+### Analyzing Price Variation by Room Type
+
+```{r}
+# Box plot of price by room_type
+ggplot(data, aes(room_type, price)) +
+  geom_boxplot(fill = "lightblue") +
+  xlab("Room Type") +
+  ylab("Price") +
+  theme_bw()
+```
+
+Analyzing the price variation by room type is important for the model as it helps determine the significance of room type in predicting Airbnb prices. By understanding the distribution of prices across different room types, we can identify the importance of this feature and its impact on pricing. The mean price average for Entire home/apt is higher compared to other room types, suggesting that this room type generally commands a higher price. On the other hand, shared rooms seem to have the lowest mean price average.
+
+### Identifying neighbourhood groups with higher or lower average prices.
+
+```{r}
+ggplot(data, aes(neighbourhood_group, price)) +
+  stat_summary(fun = mean, geom = "bar", fill = "lightblue") +
+  xlab("Neighbourhood Group") +
+  ylab("Average Price") +
+  theme_bw()
+```
+
+Identifying neighbourhood groups with higher or lower average prices is essential for understanding the pricing dynamics across different areas in NYC. The provided code generates a bar plot that displays the average prices for each neighbourhood group. It appears that Manhattan has the highest average price among the neighborhood groups, indicating that it generally has higher-priced accommodations. Brooklyn follows Manhattan as the second-highest, suggesting it also has relatively higher prices compared to the other neighborhood groups. Queens and Staten Island have similar price levels, which implies that they share a comparable pricing range. The Bronx has the lowest average price among the neighborhood groups.
+
+### Explore the relationship between minimum nights and price
+
+```{r}
+ggplot(data %>% filter(minimum_nights < 50), aes(minimum_nights, price)) +
+  geom_point(color = "blue", alpha = 0.1) +
+  xlab("Minimum Nights") +
+  ylab("Price") +
+  theme_bw()
+```
+
+Exploring the relationship between minimum nights and price is crucial for understanding how the duration of stay affects the pricing of Airbnb listings. The code provided filters the data to include only listings with a minimum nights value less than 50, ensuring a focused analysis within a reasonable range. it appears that there is a concentration of data points in the range of 0 to 10 for the "Minimum Nights" variable. The density of dots gradually decreases as we move towards higher values of "Minimum Nights" up to 200. This concentration of data points in the lower range of "Minimum Nights" suggests that a significant number of listings have a minimum stay requirement of 0 to 10 nights. This indicates that hosts are likely offering more flexible booking options with shorter minimum stay requirements.
+
+## Model setup
+
+```{r}
+# Create cross-validation folds
+cv <- vfold_cv(data_train, strata = "price")
+```
+
+Cross-validation and stratification are necessary to assess the model's performance on unseen data and address potential imbalances in the price variable. This ensures reliable evaluation and reduces bias in the model's performance estimation.
+
+```{r}
+# Define the recipe with predictor variables and the outcome variable
+recipe <- recipe(price ~ room_type + neighbourhood_group + neighbourhood + minimum_nights + number_of_reviews + reviews_per_month + calculated_host_listings_count + availability_365, data = data_train) %>%
+  step_dummy(all_nominal(), one_hot = TRUE) %>%
+  step_normalize(all_numeric(), -all_outcomes()) %>%
+  step_center(all_numeric(), -all_outcomes())
+
+# Define a model specification
+lm_spec <- linear_reg() %>%
+  set_engine("lm") %>%
+  set_mode("regression")
+
+# Combine the recipe and model specification into a workflow
+workflow <- workflow() %>%
+  add_recipe(recipe) %>%
+  add_model(lm_spec)
+
+# Fit the workflow to the training data
+fit_result <- workflow %>%
+  fit(data = data_train)
+
+# Run the workflow with cross-folds using fit_resamples()
+cv_results <- fit_resamples(workflow, resamples = cv, control = control_resamples(save_pred = TRUE))
+```
+
+The selected variables (room_type, neighbourhood_group, neighbourhood, minimum_nights, number_of_reviews, reviews_per_month, calculated_host_listings_count, availability_365) were chosen for their relevance and potential impact on the target variable (price). They capture important aspects.
+
+The steps in the recipe (dummy encoding, normalization, centering) were selected to handle categorical variables, ensure comparable scales for numeric variables, and interpret coefficients accurately. Dummy encoding creates binary variables for categories, normalization scales numeric variables, and centering subtracts the mean value. These steps facilitate meaningful comparisons and model interpretation.
+
+```{r}
+# Apply the workflow to the training data
+fit_train <- augment(fit_result, new_data = data_train)
+
+# Plot the relationship between predicted and actual prices for the training data
+ggplot(fit_train, aes(price, .pred)) +
+  geom_abline(slope = 1, lty = 2, color = "red", alpha = 0.5) +
+  geom_point(alpha = 0.2) +
+  labs(x = "Actual Price", y = "Predicted Price (Training Data)") +
+  theme_minimal()
+```
+
+```{r}
+# Augment the cross-validation results
+cv_augmented <- augment(x = cv_results)
+
+ggplot(cv_augmented, aes(x = .pred, y = price)) +
+  geom_point() +
+  geom_abline(color = "red", linetype = "dashed") +
+  labs(x = "Predicted Price", y = "Observed Price", title = "Cross-Validation Predictions vs. Observed Values")
+```
+
+```{r}
+# Collect the evaluation metrics from the cross-validated results
+cv_metrics <- collect_metrics(cv_results)
+
+# Display the evaluation metrics
+cv_metrics
+```
+
+The evaluation metrics show an RMSE of 39.49 and an R-squared of 0.55. The RMSE indicates the average deviation between predicted and observed values, while the R-squared represents the proportion of variance explained by the model.
+
+# Model Evaluation
+
+#### Plotting Test data of the Model With training data using fit()
+
+```{r}
+fit_test <- augment(fit_result, new_data = data_test)
+
+# Plot the relationship between predicted and actual prices for the training data
+ggplot(fit_test, aes(price, .pred)) +
+  geom_abline(slope = 1, lty = 2, color = "red", alpha = 0.5) +
+  geom_point(alpha = 0.2, color="#add8e6") +
+  labs(x = "Actual Price", y = "Predicted Price (Training Data)") +
+  theme_minimal()
+```
+
+#### Test data metrics of Model With training data using fit()
+
+```{r}
+# Calculate RMSE
+rmse <- rmse(fit_test, truth = price, estimate = .pred)
+
+# Calculate MAE
+mae <- mae(fit_test, truth = price, estimate = .pred)
+
+# Calculate R-squared
+rsquared <- rsq(fit_test, truth = price, estimate = .pred)
+
+# Print the evaluation metrics
+print(list(RMSE = rmse, MAE = mae, R_squared = rsquared))
+```
+
+#### Plotting Test data of the Model With cross-folds setup using fit_resamples()
+
+```{r}
+cv_test_results <- fit_resamples(workflow, resamples = cv, control = control_resamples(save_pred=TRUE))
+
+cv_augmented_test <- augment(x = cv_test_results)
+
+ggplot(cv_augmented_test, aes(x = .pred, y = price)) +
+  geom_point(color="#add8e6") +
+  geom_abline(color = "red", linetype = "dashed") +
+  labs(x = "Predicted Price", y = "Observed Price(Training Data)", title = "Cross-Validation Predictions vs. Observed Values")
+```
+
+#### Test data metrics of the model with cross-folds setup using fit_resamples()
+
+```{r}
+
+# Run the workflow with cross-folds using fit_resamples()
+cv_test_results <- fit_resamples(workflow, resamples = cv, control = control_resamples(save_pred = TRUE))
+
+# Collect the evaluation metrics from the cross-validated results
+cv_metrics <- collect_metrics(cv_test_results)
+
+# Display the evaluation metrics
+cv_metrics
+```
+
+The metrics of RMSE, MAE, and R-squared were chosen to evaluate the models. RMSE measures the average error between predicted and actual values, MAE represents the average absolute error, and R-squared indicates how well the model fits the data. These metrics provide a comprehensive assessment of the models' accuracy and goodness of fit.
+
+The first model, trained with the fit() function, showed relatively better performance with an RMSE of 38.57583, MAE of 29.23507, and an R-squared of 0.561972. These metrics indicate the model's ability to predict prices accurately and explain approximately 56.2% of the variance in the data.
+
+The second model, implemented with fit_resamples() using cross-validation, yielded slightly higher RMSE (39.4915419) and a lower R-squared (0.5477676). This suggests a slightly lower accuracy and a relatively weaker fit to the data compared to the first model. Considering these results, the first model demonstrates better performance in terms of accuracy and explained variance.
