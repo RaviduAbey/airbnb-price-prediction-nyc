@@ -1,5 +1,5 @@
 ---
-title: "Assessment 2"
+title: "Airbnb Price Prediction in New York City"
 author: "Ravidu Sadaruwan Abeywardana - s4616625"
 date: "2023-06-04"
 output:
