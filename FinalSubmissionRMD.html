@@ -1,0 +1,712 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html><head></head><body>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div>
+
+
+
+<h1 class="title toc-ignore">Assessment 2</h1>
+<h4 class="author">Ravidu Sadaruwan Abeywardana - s4616625</h4>
+<h4 class="date">2023-06-04</h4>
+
+</div>
+
+
+<div class="section level1">
+<h1><strong>Introduction</strong></h1>
+<p>Predicting the prices of Airbnb listings is an essential task for
+both hosts and guests in order to ensure fair pricing and facilitate
+informed decision-making. In this project, we aim to create a model that
+predicts Airbnb prices in New York City (NYC) based on various features
+provided in the dataset. The dataset used for this project consists of
+information about Airbnb listings in NYC. The aim of this project is to
+build a regression model that can accurately estimate the price of an
+Airbnb listing based on its attributes. Throughout the process, we will
+follow common machine learning steps, including data exploration,
+preprocessing, feature selection or engineering, model training, and
+evaluation. We will assess the performance of our model using
+appropriate evaluation metrics such as mean absolute error (MAE) or root
+mean squared error (RMSE).</p>
+<div class="section level2">
+<h2>Loading necessary libraries</h2>
+<pre class="r"><code>library(tidymodels)</code></pre>
+<pre><code>## ── Attaching packages ────────────────────────────────────── tidymodels 1.1.0 ──</code></pre>
+<pre><code>## ✔ broom        1.0.4     ✔ recipes      1.0.6
+## ✔ dials        1.2.0     ✔ rsample      1.1.1
+## ✔ dplyr        1.1.2     ✔ tibble       3.2.1
+## ✔ ggplot2      3.4.2     ✔ tidyr        1.3.0
+## ✔ infer        1.0.4     ✔ tune         1.1.1
+## ✔ modeldata    1.1.0     ✔ workflows    1.1.3
+## ✔ parsnip      1.1.0     ✔ workflowsets 1.0.1
+## ✔ purrr        1.0.1     ✔ yardstick    1.2.0</code></pre>
+<pre><code>## ── Conflicts ───────────────────────────────────────── tidymodels_conflicts() ──
+## ✖ purrr::discard() masks scales::discard()
+## ✖ dplyr::filter()  masks stats::filter()
+## ✖ dplyr::lag()     masks stats::lag()
+## ✖ recipes::step()  masks stats::step()
+## • Search for functions across packages at https://www.tidymodels.org/find/</code></pre>
+<pre class="r"><code>library(dplyr)
+library (tidyverse)</code></pre>
+<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+## ✔ forcats   1.0.0     ✔ readr     2.1.4
+## ✔ lubridate 1.9.2     ✔ stringr   1.5.0</code></pre>
+<pre><code>## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+## ✖ readr::col_factor() masks scales::col_factor()
+## ✖ purrr::discard()    masks scales::discard()
+## ✖ dplyr::filter()     masks stats::filter()
+## ✖ stringr::fixed()    masks recipes::fixed()
+## ✖ dplyr::lag()        masks stats::lag()
+## ✖ readr::spec()       masks yardstick::spec()
+## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
+<pre class="r"><code>library (modeldata)
+library(ggplot2)
+library(broom)
+library(GGally)</code></pre>
+<pre><code>## Registered S3 method overwritten by &#39;GGally&#39;:
+##   method from   
+##   +.gg   ggplot2</code></pre>
+</div>
+<div class="section level2">
+<h2>Data Wrangling process</h2>
+<pre class="r"><code># Read data from CSV
+data &lt;- read.csv(&quot;train.csv&quot;)</code></pre>
+<div class="section level3">
+<h3>Handling Missing Data</h3>
+<pre class="r"><code># Check for missing data
+colSums(is.na(data))</code></pre>
+<pre><code>##                             id                           name 
+##                              0                              9 
+##                        host_id                      host_name 
+##                              0                             14 
+##            neighbourhood_group                  neighbourhood 
+##                              0                              0 
+##                       latitude                      longitude 
+##                              0                              0 
+##                      room_type                          price 
+##                              0                              0 
+##                 minimum_nights              number_of_reviews 
+##                              0                              0 
+##                    last_review              reviews_per_month 
+##                           7008                           7008 
+## calculated_host_listings_count               availability_365 
+##                              0                              0</code></pre>
+<p>It appears that the columns <strong><code>name</code></strong>,
+<strong><code>host_name</code></strong>,
+<strong><code>last_review</code></strong>, and
+<strong><code>reviews_per_month</code></strong> have missing values.</p>
+<pre class="r"><code># Handle missing data
+# fill in missing values in &#39;last_review&#39; with a placeholder date
+data$last_review[is.na(data$last_review)] &lt;- as.Date(&quot;1900-01-01&quot;)
+
+# fill in missing values in &#39;reviews_per_month&#39; with 0
+data$reviews_per_month[is.na(data$reviews_per_month)] &lt;- 0
+
+colSums(is.na(data))</code></pre>
+<pre><code>##                             id                           name 
+##                              0                              9 
+##                        host_id                      host_name 
+##                              0                             14 
+##            neighbourhood_group                  neighbourhood 
+##                              0                              0 
+##                       latitude                      longitude 
+##                              0                              0 
+##                      room_type                          price 
+##                              0                              0 
+##                 minimum_nights              number_of_reviews 
+##                              0                              0 
+##                    last_review              reviews_per_month 
+##                              0                              0 
+## calculated_host_listings_count               availability_365 
+##                              0                              0</code></pre>
+<p>In the data preprocessing step, the important missing values in the
+<strong><code>last_review</code></strong> column were filled with a
+placeholder date (January 1, 1900), and the missing values in the
+<strong><code>reviews_per_month</code></strong> column were filled with
+0.</p>
+</div>
+<div class="section level3">
+<h3>Outlier Detection and Removal</h3>
+<pre class="r"><code>#Checking for outliers
+# Create boxplot for price
+ggplot(data, aes(y = price)) +
+  geom_boxplot()</code></pre>
+<p><img src="javascript://" width="672"/></p>
+<pre class="r"><code># Removing outliers
+data &lt;- read.csv(&quot;train.csv&quot;)
+mean_val &lt;- mean(data$price)
+sd_val &lt;- sd(data$price)
+
+# Define the threshold
+threshold &lt;- 0.53
+
+# Identify outliers
+outliers &lt;- data$price &lt; (mean_val - threshold * sd_val) | data$price &gt; (mean_val + threshold * sd_val)
+
+# Remove outliers from the dataset
+data &lt;- data[!outliers, ]
+
+#Checking for outliers
+ggplot(data, aes(y = price)) +
+  geom_boxplot(fill = &quot;lightblue&quot;, color = &quot;darkblue&quot;, outlier.color = &quot;red&quot;) +
+  labs(x = &quot;&quot;, y = &quot;Price&quot;) +
+  theme_bw()</code></pre>
+<p><img src="javascript://" width="672"/></p>
+<p>By removing the outliers, the dataset is modified to have a more
+representative distribution of prices without extreme values that might
+affect the analysis or modeling process.</p>
+</div>
+<div class="section level3">
+<h3>Skewness Assessment</h3>
+<pre class="r"><code># Density plot with mean and median markers
+ggplot(data, aes(x = price)) +
+  geom_density(fill = &quot;blue&quot;, color = &quot;white&quot;) +
+  labs(x = &quot;Price&quot;, y = &quot;Density&quot;) +
+  theme_bw() +
+  geom_vline(aes(xintercept = mean(price)), color = &quot;red&quot;, linetype = &quot;dashed&quot;, size = 1) +
+  geom_vline(aes(xintercept = median(price)), color = &quot;green&quot;, linetype = &quot;dashed&quot;, size = 1) +
+  annotate(&quot;text&quot;, x = mean(data$price), y = 0, label = &quot;Mean&quot;, vjust = -0.5, color = &quot;red&quot;) +
+  annotate(&quot;text&quot;, x = median(data$price), y = 0, label = &quot;Median&quot;, vjust = -0.5, color = &quot;green&quot;)</code></pre>
+<p><img src="javascript://" width="672"/></p>
+<p>The resulting density plot helps in assessing the skewness of the
+‘price’ variable. The distribution is skewed to the right. This means
+that the tail of the distribution extends towards higher prices,
+indicating a higher frequency of higher-priced listings compared to
+lower-priced ones. Understanding the skewness of a variable is essential
+as it can impact the modeling process and the assumptions made by
+certain statistical techniques.</p>
+</div>
+<div class="section level3">
+<h3>Visualizing Relationships between Variables</h3>
+<pre class="r"><code># Check high correlation to data target 
+ggcorr(data, label = T, hjust = 1, layout.exp = 3)</code></pre>
+<p><img src="javascript://" width="672"/></p>
+<div class="section level4">
+<h4><strong>Overall view of the relationship between variables and the
+“price” variable</strong></h4>
+<pre class="r"><code>library(RColorBrewer)
+
+color_palette &lt;- brewer.pal(n = length(unique(data$neighbourhood_group)), name = &quot;Set1&quot;)
+ggpairs(data, columns = c(&quot;price&quot;, &quot;neighbourhood_group&quot;, &quot;room_type&quot;, &quot;number_of_reviews&quot;, &quot;minimum_nights&quot;),
+        title = &quot;Scatter Plot Matrix of Selected Variables&quot;,
+        binwidth = 0.5,
+        mapping = aes(color = neighbourhood_group)) +
+  theme_bw() +
+  scale_color_manual(values = color_palette) </code></pre>
+<pre><code>## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
+## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
+<p><img src="javascript://" width="672"/></p>
+</div>
+</div>
+<div class="section level3">
+<h3>Data Splitting</h3>
+<pre class="r"><code>set.seed(123)
+data_split &lt;- initial_split(data)
+data_train &lt;- training (data_split)
+data_test &lt;- testing (data_split)</code></pre>
+<p>The process of splitting the dataset into training and testing
+subsets allows for model training and evaluation on separate portions of
+the data. The data_train subset is utilized for training the model,
+which involves learning patterns and relationships within the data. On
+the other hand, the data_test subset is used to evaluate the performance
+of the trained model on unseen data.</p>
+</div>
+</div>
+</div>
+<div class="section level1">
+<h1>Data Exploration</h1>
+<div class="section level3">
+<h3>Analyzing Price Variation by Room Type</h3>
+<pre class="r"><code># Box plot of price by room_type
+ggplot(data, aes(room_type, price)) +
+  geom_boxplot(fill = &quot;lightblue&quot;) +
+  xlab(&quot;Room Type&quot;) +
+  ylab(&quot;Price&quot;) +
+  theme_bw()</code></pre>
+<p><img src="javascript://" width="672"/></p>
+<p>Analyzing the price variation by room type is important for the model
+as it helps determine the significance of room type in predicting Airbnb
+prices. By understanding the distribution of prices across different
+room types, we can identify the importance of this feature and its
+impact on pricing. The mean price average for Entire home/apt is higher
+compared to other room types, suggesting that this room type generally
+commands a higher price. On the other hand, shared rooms seem to have
+the lowest mean price average.</p>
+</div>
+<div class="section level3">
+<h3>Identifying neighbourhood groups with higher or lower average
+prices.</h3>
+<pre class="r"><code>ggplot(data, aes(neighbourhood_group, price)) +
+  stat_summary(fun = mean, geom = &quot;bar&quot;, fill = &quot;lightblue&quot;) +
+  xlab(&quot;Neighbourhood Group&quot;) +
+  ylab(&quot;Average Price&quot;) +
+  theme_bw()</code></pre>
+<p><img src="javascript://" width="672"/></p>
+<p>Identifying neighbourhood groups with higher or lower average prices
+is essential for understanding the pricing dynamics across different
+areas in NYC. The provided code generates a bar plot that displays the
+average prices for each neighbourhood group. It appears that Manhattan
+has the highest average price among the neighborhood groups, indicating
+that it generally has higher-priced accommodations. Brooklyn follows
+Manhattan as the second-highest, suggesting it also has relatively
+higher prices compared to the other neighborhood groups. Queens and
+Staten Island have similar price levels, which implies that they share a
+comparable pricing range. The Bronx has the lowest average price among
+the neighborhood groups.</p>
+</div>
+<div class="section level3">
+<h3>Explore the relationship between minimum nights and price</h3>
+<pre class="r"><code>ggplot(data %&gt;% filter(minimum_nights &lt; 50), aes(minimum_nights, price)) +
+  geom_point(color = &quot;blue&quot;, alpha = 0.1) +
+  xlab(&quot;Minimum Nights&quot;) +
+  ylab(&quot;Price&quot;) +
+  theme_bw()</code></pre>
+<p><img src="javascript://" width="672"/></p>
+<p>Exploring the relationship between minimum nights and price is
+crucial for understanding how the duration of stay affects the pricing
+of Airbnb listings. The code provided filters the data to include only
+listings with a minimum nights value less than 50, ensuring a focused
+analysis within a reasonable range. it appears that there is a
+concentration of data points in the range of 0 to 10 for the “Minimum
+Nights” variable. The density of dots gradually decreases as we move
+towards higher values of “Minimum Nights” up to 200. This concentration
+of data points in the lower range of “Minimum Nights” suggests that a
+significant number of listings have a minimum stay requirement of 0 to
+10 nights. This indicates that hosts are likely offering more flexible
+booking options with shorter minimum stay requirements.</p>
+</div>
+<div class="section level2">
+<h2>Model setup</h2>
+<pre class="r"><code># Create cross-validation folds
+cv &lt;- vfold_cv(data_train, strata = &quot;price&quot;)</code></pre>
+<p>Cross-validation and stratification are necessary to assess the
+model’s performance on unseen data and address potential imbalances in
+the price variable. This ensures reliable evaluation and reduces bias in
+the model’s performance estimation.</p>
+<pre class="r"><code># Define the recipe with predictor variables and the outcome variable
+recipe &lt;- recipe(price ~ room_type + neighbourhood_group + neighbourhood + minimum_nights + number_of_reviews + reviews_per_month + calculated_host_listings_count + availability_365, data = data_train) %&gt;%
+  step_dummy(all_nominal(), one_hot = TRUE) %&gt;%
+  step_normalize(all_numeric(), -all_outcomes()) %&gt;%
+  step_center(all_numeric(), -all_outcomes())
+
+# Define a model specification
+lm_spec &lt;- linear_reg() %&gt;%
+  set_engine(&quot;lm&quot;) %&gt;%
+  set_mode(&quot;regression&quot;)
+
+# Combine the recipe and model specification into a workflow
+workflow &lt;- workflow() %&gt;%
+  add_recipe(recipe) %&gt;%
+  add_model(lm_spec)
+
+# Fit the workflow to the training data
+fit_result &lt;- workflow %&gt;%
+  fit(data = data_train)
+
+# Run the workflow with cross-folds using fit_resamples()
+cv_results &lt;- fit_resamples(workflow, resamples = cv, control = control_resamples(save_pred = TRUE))</code></pre>
+<pre><code>## → A | warning: prediction from a rank-deficient fit may be misleading</code></pre>
+<pre><code>## 
+There were issues with some computations   A: x1
+
+                                                 
+→ B | warning: There are new levels in a factor: New Brighton, Mill Basin, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1
+
+There were issues with some computations   A: x1   B: x1
+
+                                                         
+→ C | warning: There are new levels in a factor: Midland Beach, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1
+
+There were issues with some computations   A: x1   B: x1   C: x1
+
+                                                                 
+→ D | warning: There are new levels in a factor: Graniteville, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1
+
+                                                                         
+→ E | warning: There are new levels in a factor: Emerson Hill, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1   D: x1
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x1
+
+                                                                                 
+→ F | warning: There are new levels in a factor: Spuyten Duyvil, Great Kills, New Dorp, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x1
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+                                                                                 
+→ G | warning: There are new levels in a factor: Westerleigh, Olinville, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+                                                                                 
+→ H | warning: There are new levels in a factor: Richmondtown, Rosebank, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x2   B: x1   C: x1   D: x1   E: x…
+
+                                                                                 
+→ I | warning: There are new levels in a factor: Holliswood, Neponsit, West Farms, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x2   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x2   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x2   B: x1   C: x1   D: x1   E: x…</code></pre>
+<p>The selected variables (room_type, neighbourhood_group,
+neighbourhood, minimum_nights, number_of_reviews, reviews_per_month,
+calculated_host_listings_count, availability_365) were chosen for their
+relevance and potential impact on the target variable (price). They
+capture important aspects.</p>
+<p>The steps in the recipe (dummy encoding, normalization, centering)
+were selected to handle categorical variables, ensure comparable scales
+for numeric variables, and interpret coefficients accurately. Dummy
+encoding creates binary variables for categories, normalization scales
+numeric variables, and centering subtracts the mean value. These steps
+facilitate meaningful comparisons and model interpretation.</p>
+<pre class="r"><code># Apply the workflow to the training data
+fit_train &lt;- augment(fit_result, new_data = data_train)
+
+# Plot the relationship between predicted and actual prices for the training data
+ggplot(fit_train, aes(price, .pred)) +
+  geom_abline(slope = 1, lty = 2, color = &quot;red&quot;, alpha = 0.5) +
+  geom_point(alpha = 0.2) +
+  labs(x = &quot;Actual Price&quot;, y = &quot;Predicted Price (Training Data)&quot;) +
+  theme_minimal()</code></pre>
+<p><img src="javascript://" width="672"/></p>
+<pre class="r"><code># Augment the cross-validation results
+cv_augmented &lt;- augment(x = cv_results)
+
+ggplot(cv_augmented, aes(x = .pred, y = price)) +
+  geom_point() +
+  geom_abline(color = &quot;red&quot;, linetype = &quot;dashed&quot;) +
+  labs(x = &quot;Predicted Price&quot;, y = &quot;Observed Price&quot;, title = &quot;Cross-Validation Predictions vs. Observed Values&quot;)</code></pre>
+<p><img src="javascript://" width="672"/></p>
+<pre class="r"><code># Collect the evaluation metrics from the cross-validated results
+cv_metrics &lt;- collect_metrics(cv_results)
+
+# Display the evaluation metrics
+cv_metrics</code></pre>
+<pre><code>## # A tibble: 2 &#215; 6
+##   .metric .estimator   mean     n std_err .config             
+##   &lt;chr&gt;   &lt;chr&gt;       &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt; &lt;chr&gt;               
+## 1 rmse    standard   39.5      10 0.205   Preprocessor1_Model1
+## 2 rsq     standard    0.548    10 0.00259 Preprocessor1_Model1</code></pre>
+<p>The evaluation metrics show an RMSE of 39.49 and an R-squared of
+0.55. The RMSE indicates the average deviation between predicted and
+observed values, while the R-squared represents the proportion of
+variance explained by the model.</p>
+</div>
+</div>
+<div class="section level1">
+<h1>Model Evaluation</h1>
+<div class="section level4">
+<h4>Plotting Test data of the Model With training data using fit()</h4>
+<pre class="r"><code>fit_test &lt;- augment(fit_result, new_data = data_test)
+
+# Plot the relationship between predicted and actual prices for the training data
+ggplot(fit_test, aes(price, .pred)) +
+  geom_abline(slope = 1, lty = 2, color = &quot;red&quot;, alpha = 0.5) +
+  geom_point(alpha = 0.2, color=&quot;#add8e6&quot;) +
+  labs(x = &quot;Actual Price&quot;, y = &quot;Predicted Price (Training Data)&quot;) +
+  theme_minimal()</code></pre>
+<p><img src="javascript://" width="672"/></p>
+</div>
+<div class="section level4">
+<h4>Test data metrics of Model With training data using fit()</h4>
+<pre class="r"><code># Calculate RMSE
+rmse &lt;- rmse(fit_test, truth = price, estimate = .pred)
+
+# Calculate MAE
+mae &lt;- mae(fit_test, truth = price, estimate = .pred)
+
+# Calculate R-squared
+rsquared &lt;- rsq(fit_test, truth = price, estimate = .pred)
+
+# Print the evaluation metrics
+print(list(RMSE = rmse, MAE = mae, R_squared = rsquared))</code></pre>
+<pre><code>## $RMSE
+## # A tibble: 1 &#215; 3
+##   .metric .estimator .estimate
+##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;
+## 1 rmse    standard        38.6
+## 
+## $MAE
+## # A tibble: 1 &#215; 3
+##   .metric .estimator .estimate
+##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;
+## 1 mae     standard        29.2
+## 
+## $R_squared
+## # A tibble: 1 &#215; 3
+##   .metric .estimator .estimate
+##   &lt;chr&gt;   &lt;chr&gt;          &lt;dbl&gt;
+## 1 rsq     standard       0.562</code></pre>
+</div>
+<div class="section level4">
+<h4>Plotting Test data of the Model With cross-folds setup using
+fit_resamples()</h4>
+<pre class="r"><code>cv_test_results &lt;- fit_resamples(workflow, resamples = cv, control = control_resamples(save_pred=TRUE))</code></pre>
+<pre><code>## → A | warning: prediction from a rank-deficient fit may be misleading</code></pre>
+<pre><code>## 
+There were issues with some computations   A: x1
+
+                                                 
+→ B | warning: There are new levels in a factor: New Brighton, Mill Basin, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1
+
+There were issues with some computations   A: x1   B: x1
+
+                                                         
+→ C | warning: There are new levels in a factor: Midland Beach, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1
+
+There were issues with some computations   A: x1   B: x1   C: x1
+
+                                                                 
+→ D | warning: There are new levels in a factor: Graniteville, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1
+
+                                                                         
+→ E | warning: There are new levels in a factor: Emerson Hill, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1   D: x1
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x1
+
+                                                                                 
+→ F | warning: There are new levels in a factor: Spuyten Duyvil, Great Kills, New Dorp, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x1
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+                                                                                 
+→ G | warning: There are new levels in a factor: Westerleigh, Olinville, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+                                                                                 
+→ H | warning: There are new levels in a factor: Richmondtown, Rosebank, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x2   B: x1   C: x1   D: x1   E: x…
+
+                                                                                 
+→ I | warning: There are new levels in a factor: Holliswood, Neponsit, West Farms, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x2   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x2   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x2   B: x1   C: x1   D: x1   E: x…</code></pre>
+<pre class="r"><code>cv_augmented_test &lt;- augment(x = cv_test_results)
+
+ggplot(cv_augmented_test, aes(x = .pred, y = price)) +
+  geom_point(color=&quot;#add8e6&quot;) +
+  geom_abline(color = &quot;red&quot;, linetype = &quot;dashed&quot;) +
+  labs(x = &quot;Predicted Price&quot;, y = &quot;Observed Price(Training Data)&quot;, title = &quot;Cross-Validation Predictions vs. Observed Values&quot;)</code></pre>
+<p><img src="javascript://" width="672"/></p>
+</div>
+<div class="section level4">
+<h4>Test data metrics of the model with cross-folds setup using
+fit_resamples()</h4>
+<pre class="r"><code># Run the workflow with cross-folds using fit_resamples()
+cv_test_results &lt;- fit_resamples(workflow, resamples = cv, control = control_resamples(save_pred = TRUE))</code></pre>
+<pre><code>## → A | warning: prediction from a rank-deficient fit may be misleading</code></pre>
+<pre><code>## 
+There were issues with some computations   A: x1
+
+                                                 
+→ B | warning: There are new levels in a factor: New Brighton, Mill Basin, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1
+
+There were issues with some computations   A: x1   B: x1
+
+                                                         
+→ C | warning: There are new levels in a factor: Midland Beach, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1
+
+There were issues with some computations   A: x1   B: x1   C: x1
+
+                                                                 
+→ D | warning: There are new levels in a factor: Graniteville, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1
+
+                                                                         
+→ E | warning: There are new levels in a factor: Emerson Hill, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1   D: x1
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x1
+
+                                                                                 
+→ F | warning: There are new levels in a factor: Spuyten Duyvil, Great Kills, New Dorp, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x1
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+                                                                                 
+→ G | warning: There are new levels in a factor: Westerleigh, Olinville, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+                                                                                 
+→ H | warning: There are new levels in a factor: Richmondtown, Rosebank, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x1   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x2   B: x1   C: x1   D: x1   E: x…
+
+                                                                                 
+→ I | warning: There are new levels in a factor: Holliswood, Neponsit, West Farms, prediction from a rank-deficient fit may be misleading
+## There were issues with some computations   A: x2   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x2   B: x1   C: x1   D: x1   E: x…
+
+There were issues with some computations   A: x2   B: x1   C: x1   D: x1   E: x…</code></pre>
+<pre class="r"><code># Collect the evaluation metrics from the cross-validated results
+cv_metrics &lt;- collect_metrics(cv_test_results)
+
+# Display the evaluation metrics
+cv_metrics</code></pre>
+<pre><code>## # A tibble: 2 &#215; 6
+##   .metric .estimator   mean     n std_err .config             
+##   &lt;chr&gt;   &lt;chr&gt;       &lt;dbl&gt; &lt;int&gt;   &lt;dbl&gt; &lt;chr&gt;               
+## 1 rmse    standard   39.5      10 0.205   Preprocessor1_Model1
+## 2 rsq     standard    0.548    10 0.00259 Preprocessor1_Model1</code></pre>
+<p>The metrics of RMSE, MAE, and R-squared were chosen to evaluate the
+models. RMSE measures the average error between predicted and actual
+values, MAE represents the average absolute error, and R-squared
+indicates how well the model fits the data. These metrics provide a
+comprehensive assessment of the models’ accuracy and goodness of
+fit.</p>
+<p>The first model, trained with the fit() function, showed relatively
+better performance with an RMSE of 38.57583, MAE of 29.23507, and an
+R-squared of 0.561972. These metrics indicate the model’s ability to
+predict prices accurately and explain approximately 56.2% of the
+variance in the data.</p>
+<p>The second model, implemented with fit_resamples() using
+cross-validation, yielded slightly higher RMSE (39.4915419) and a lower
+R-squared (0.5477676). This suggests a slightly lower accuracy and a
+relatively weaker fit to the data compared to the first model.
+Considering these results, the first model demonstrates better
+performance in terms of accuracy and explained variance.</p>
+</div>
+</div>
+
+
+
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="module" src="https://s.brightspace.com/lib/bsi/2024.8.194/unbundled/mathjax.js"></script><script type="text/javascript">document.addEventListener('DOMContentLoaded', function() {
+						if (document.querySelector('math') || /\$\$|\\\(|\\\[|\\begin{|\\ref{|\\eqref{/.test(document.body.innerHTML)) {
+							document.querySelectorAll('mspace[linebreak="newline"]').forEach(elm => {
+								elm.setAttribute('style', 'display: block; height: 0.5rem;');
+							});
+
+							window.D2L.MathJax.loadMathJax({
+								outputScale: 1.5,
+								renderLatex: true,
+								enableMML3Support: false
+							});
+						}
+					});</script><script type="module" src="https://s.brightspace.com/lib/bsi/2024.8.194/unbundled/prism.js"></script><script type="text/javascript">document.addEventListener('DOMContentLoaded', function() {
+					document.querySelectorAll('.d2l-code').forEach(code => {
+						window.D2L.Prism.formatCodeElement(code);
+					});
+				});</script><script type="module" src="https://s.brightspace.com/lib/bsi/2024.8.194/unbundled/embeds.js"></script><script type="text/javascript">document.addEventListener('DOMContentLoaded', function() {
+					window.D2L.EmbedRenderer.renderEmbeds(document.body);
+				});</script></body></html>
